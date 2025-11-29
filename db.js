@@ -13,12 +13,13 @@ import mysql from "mysql2/promise";
 // });
 
 export const db = mysql.createPool({
-  host: "%almubarak",
+  host: "86.107.77.205",
   user: "almubara_almubarak_db",
   password: "Candd4611@",
   database: "almubara_almubarak_db",
   waitForConnections: true,
   connectionLimit: 10,
+  port:"3306",
   queueLimit: 0
 });
 console.log("Alhamdulillah MySQL connected successfully");
