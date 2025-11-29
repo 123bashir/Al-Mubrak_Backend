@@ -2,6 +2,8 @@ import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import axios from "axios";
+import FormData from "form-data";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,7 +32,7 @@ import productRouter from "./routes/product.route.js";
 import adminRouter from "./routes/admin.route.js";
 import paymentRouter from "./routes/payment.route.js";
 import shippingRouter from "./routes/shipping.route.js";
-import uploadRouter from "./routes/upload.route.js";
+import uploadRouter from "./routes/upload.route.js"; // will wrap for Telhost
 import staffRouter from "./routes/staff.route.js";
 import cartRouter from "./routes/cart.route.js";
 import cookieParser from "cookie-parser";
@@ -44,13 +46,10 @@ app.use(session({
   cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
-// CORS must be before express.json() to handle preflight requests
 app.use(cors({
   origin: [
-    // Development
     "http://localhost:5173",
     "http://localhost:5174",
-    // Production
     "https://almubarakcosmetics.com.ng",
     "https://admin.almubarakcosmetics.com.ng"
   ],
@@ -59,12 +58,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Increase payload size limit for image uploads (base64 encoded)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
-
-// Serve static files from the public directory
 app.use(express.static(path.join(__dirname, "public")));
 
 const uploadsPath = path.join(__dirname, '../uploads');
@@ -74,7 +70,44 @@ if (!fs.existsSync(uploadsPath)) {
 app.use('/uploads', express.static(uploadsPath));
 app.use('/api/uploads', express.static(uploadsPath));
 
-// API Routes
+// Wrap uploadRouter to automatically send files to Telhost
+app.use("/api/upload", async (req, res, next) => {
+  // Call your original upload router first
+  uploadRouter(req, res, async (err) => {
+    if (err) return next(err);
+
+    try {
+      // Assuming req.body contains { fileName, fileData } in base64
+      if (req.body?.fileName && req.body?.fileData) {
+        const localFilePath = path.join(uploadsPath, req.body.fileName);
+        const buffer = Buffer.from(req.body.fileData, "base64");
+
+        // Save locally (uploadRouter probably already did this)
+        fs.writeFileSync(localFilePath, buffer);
+
+        // Send to Telhost
+        const formData = new FormData();
+        formData.append("image", fs.createReadStream(localFilePath));
+
+        const telhostResponse = await axios.post(
+          "https://api.almubarakcosmetics.com.ng/uploads.php",
+          formData,
+          { headers: formData.getHeaders() }
+        );
+
+        console.log("Sent to Telhost:", telhostResponse.data);
+      }
+
+      // Continue normal response
+      next();
+    } catch (err) {
+      console.error("Telhost upload failed:", err.message);
+      // Still continue to next middleware so your app doesn't crash
+      next();
+    }
+  });
+});
+
 // API Routes
 app.use("/api/users", userRouter);
 app.use("/api/categories", categoryRouter);
@@ -88,7 +121,6 @@ app.use("/api/payments", paymentRouter);
 app.use("/api/shipping", shippingRouter);
 app.use("/api", staffRouter);
 app.use("/api/cart", cartRouter);
-app.use("/api/upload", uploadRouter);
 
 app.use((error, req, res, next) => {
   res.status(error.status || 500).json({
