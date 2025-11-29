@@ -39,6 +39,7 @@ import cookieParser from "cookie-parser";
 
 const app = express();
 
+// Session setup
 app.use(session({
   secret: process.env.SESSION_SECRET || "dev_secret_change_me",
   resave: false,
@@ -46,6 +47,7 @@ app.use(session({
   cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
+// CORS setup
 app.use(cors({
   origin: [
     "http://localhost:5173",
@@ -58,34 +60,40 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Body parsers
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
+
+// Serve static files from public folder
 app.use(express.static(path.join(__dirname, "public")));
 
+// Uploads folder
 const uploadsPath = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
 }
-app.use('/uploads', express.static(uploadsPath));
-app.use('/api/uploads', express.static(uploadsPath));
 
-// Wrap uploadRouter to automatically send files to Telhost
+// Serve /api/upload as static
+app.use('/api/upload', express.static(uploadsPath));
+
+// Wrap uploadRouter to push files to Telhost
 app.use("/api/upload", async (req, res, next) => {
-  // Call your original upload router first
   uploadRouter(req, res, async (err) => {
     if (err) return next(err);
 
     try {
-      // Assuming req.body contains { fileName, fileData } in base64
+      // Expecting { fileName, fileData } in base64
       if (req.body?.fileName && req.body?.fileData) {
         const localFilePath = path.join(uploadsPath, req.body.fileName);
         const buffer = Buffer.from(req.body.fileData, "base64");
 
-        // Save locally (uploadRouter probably already did this)
-        fs.writeFileSync(localFilePath, buffer);
+        // Save locally (if uploadRouter hasn't already)
+        if (!fs.existsSync(localFilePath)) {
+          fs.writeFileSync(localFilePath, buffer);
+        }
 
-        // Send to Telhost
+        // Push to Telhost
         const formData = new FormData();
         formData.append("image", fs.createReadStream(localFilePath));
 
@@ -100,15 +108,14 @@ app.use("/api/upload", async (req, res, next) => {
 
       // Continue normal response
       next();
-    } catch (err) {
-      console.error("Telhost upload failed:", err.message);
-      // Still continue to next middleware so your app doesn't crash
-      next();
+    } catch (uploadErr) {
+      console.error("Telhost upload failed:", uploadErr.message);
+      next(); // Don't break main upload flow
     }
   });
 });
 
-// API Routes
+// API routes
 app.use("/api/users", userRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/customers", customerRouter);
@@ -122,6 +129,7 @@ app.use("/api/shipping", shippingRouter);
 app.use("/api", staffRouter);
 app.use("/api/cart", cartRouter);
 
+// Error handling
 app.use((error, req, res, next) => {
   res.status(error.status || 500).json({
     message: error.message || "Something went wrong!",
@@ -130,6 +138,8 @@ app.use((error, req, res, next) => {
   });
 });
 
+// Start server
 app.listen(3000, () => {
   console.log("🚀 Server is running on port 3000!");
 });
+
