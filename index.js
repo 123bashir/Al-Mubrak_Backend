@@ -9,6 +9,7 @@ import express from "express";
 import session from "express-session";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import multer from "multer"; // <- multer added
 
 // Routers
 import userRouter from "./routes/user.route.js";
@@ -30,11 +31,7 @@ const __dirname = path.dirname(__filename);
 
 // Load env
 const localEnvPath = path.resolve(__dirname, ".env");
-const envResult = dotenv.config({ path: localEnvPath });
-
-if (envResult.error) {
-  dotenv.config(); 
-}
+dotenv.config({ path: localEnvPath });
 
 // Init express
 const app = express();
@@ -74,43 +71,42 @@ if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
 }
 
-// ###############################################
-//  IMAGE UPLOAD ROUTE — SEND TO TELHOST
-// ###############################################
-app.post("/api/upload", async (req, res) => {
-  try {
-    const { fileName, fileData } = req.body;
+// ##############################
+// MULTER SETUP
+// ##############################
+const tempUpload = multer({ dest: "temp_uploads/" }); // temp folder for local uploads
 
-    if (!fileName || !fileData) {
-      return res.status(400).json({ message: "fileName or fileData missing" });
+// ###############################################
+//  IMAGE UPLOAD ROUTE — RECEIVE FILE & SEND TO TELHOST
+// ###############################################
+app.post("/api/upload", tempUpload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const localFilePath = path.join(uploadsPath, fileName);
-
-    // Save file temporarily
-    const buffer = Buffer.from(fileData, "base64");
-    fs.writeFileSync(localFilePath, buffer);
+    const tempPath = req.file.path;
 
     // Prepare FormData for Telhost
     const formData = new FormData();
-    formData.append("image", fs.createReadStream(localFilePath));
+    formData.append("image", fs.createReadStream(tempPath));
 
-    // SEND TO TELHOST upload.php
+    // Send to Telhost
     const telhostResponse = await axios.post(
       "https://api.almubarakcosmetics.com.ng/uploads.php",
       formData,
       { headers: formData.getHeaders() }
     );
 
-    // Delete local temp file after upload
-    fs.unlinkSync(localFilePath);
+    // Delete local temp file
+    fs.unlinkSync(tempPath);
 
     return res.json({
       message: "Uploaded successfully",
       telhost: telhostResponse.data,
     });
   } catch (err) {
-    console.error("Upload error:", err.message);
+    console.error("Upload error:", err);
     return res.status(500).json({ message: "Upload failed", error: err.message });
   }
 });
@@ -118,11 +114,6 @@ app.post("/api/upload", async (req, res) => {
 // ###############################################
 // API ROUTES
 // ###############################################
-
-/*
- DO NOT wrap upload router anymore — it's handled above cleanly
-*/
-
 app.use("/api/users", userRouter);
 app.use("/api/categories", categoryRouter);
 app.use("/api/customers", customerRouter);
@@ -146,8 +137,7 @@ app.use((error, req, res, next) => {
 });
 
 // Start server
-app.listen(3000, () => {
-  console.log("🚀 Server is running on port 3000");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
 });
-
-
