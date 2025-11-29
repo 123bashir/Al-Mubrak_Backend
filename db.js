@@ -13,7 +13,7 @@ import mysql from "mysql2/promise";
 // });
 
 export const db = mysql.createPool({
-  host: "localhost",
+  host: "%almubarak",
   user: "almubara_almubarak_db",
   password: "Candd4611@",
   database: "almubara_almubarak_db",
