@@ -4,24 +4,19 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendOTPEmail } from "../services/gmailService.js";
 
-const resolvedJwtSecret =
-  process.env.JWT_SECRET ||
-  process.env.USER_JWT_SECRET ||
-  process.env.ADMIN_JWT_SECRET;
-
-if (!resolvedJwtSecret && process.env.NODE_ENV !== "production") {
-  console.warn(
-    "[user.controller] Missing JWT secret. Falling back to a development-only secret. Set JWT_SECRET in your .env file for production."
-  );
-}
-
-const USER_JWT_SECRET = resolvedJwtSecret || "dev_admin_secret_change_me";
+// ============================= REGISTER ==============================
+// ============================= LOGIN ==============================
 
 // ============================= REGISTER ==============================
 // ============================= LOGIN ==============================
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    const USER_JWT_SECRET = process.env.JWT_SECRET ||
+      process.env.USER_JWT_SECRET ||
+      process.env.ADMIN_JWT_SECRET ||
+      "dev_admin_secret_change_me";
 
     // Required fields validation
     if (!email || !password) {
@@ -134,6 +129,11 @@ export const registerUser = async (req, res) => {
       gender,
       dateOfBirth
     } = req.body;
+
+    const USER_JWT_SECRET = process.env.JWT_SECRET ||
+      process.env.USER_JWT_SECRET ||
+      process.env.ADMIN_JWT_SECRET ||
+      "dev_admin_secret_change_me";
 
     // Required fields validation
     const requiredFields = ['email', 'password', 'firstName', 'lastName'];

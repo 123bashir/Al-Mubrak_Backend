@@ -33,7 +33,7 @@ const localEnvPath = path.resolve(__dirname, ".env");
 const envResult = dotenv.config({ path: localEnvPath });
 
 if (envResult.error) {
-  dotenv.config(); 
+  dotenv.config();
 }
 
 // Init express

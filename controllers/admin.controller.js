@@ -5,16 +5,6 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { db } from '../db.js';
 
-const resolvedJwtSecret =
-  process.env.JWT_SECRET ||
-  process.env.ADMIN_JWT_SECRET ||
-  process.env.USER_JWT_SECRET;
-
-if (!resolvedJwtSecret && process.env.NODE_ENV !== 'production') {
-  console.warn('[admin.controller] Missing JWT secret. Falling back to a development-only secret. Set JWT_SECRET in your .env file for production.');
-}
-
-const JWT_SECRET = resolvedJwtSecret || 'dev_admin_secret_change_me';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
 const ADMIN_SELECT_FIELDS = 'id, name, email, phone, department, role, avatar, status, last_login, join_date, created_at, updated_at';
 
@@ -63,6 +53,13 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    const JWT_SECRET = process.env.JWT_SECRET ||
+      process.env.ADMIN_JWT_SECRET ||
+      process.env.USER_JWT_SECRET ||
+      'dev_admin_secret_change_me';
+
+
+
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -72,7 +69,7 @@ export const login = async (req, res) => {
 
     // Find admin by email
     const [admin] = await db.query('SELECT * FROM staff WHERE email = ?', [email]);
-    
+
     if (!admin || admin.length === 0) {
       return res.status(401).json({
         success: false,
@@ -82,7 +79,7 @@ export const login = async (req, res) => {
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, admin[0].password);
-    
+
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
@@ -122,7 +119,7 @@ export const login = async (req, res) => {
       code: error.code,
       sqlMessage: error.sqlMessage
     });
-    
+
     // More specific error messages
     let errorMessage = 'An error occurred during login';
     if (error.code === 'ER_NO_SUCH_TABLE') {
@@ -132,7 +129,7 @@ export const login = async (req, res) => {
     } else if (error.code === 'ER_ACCESS_DENIED_ERROR') {
       errorMessage = 'Database access denied. Please check your database credentials.';
     }
-    
+
     res.status(500).json({
       success: false,
       message: errorMessage,
@@ -145,7 +142,12 @@ export const login = async (req, res) => {
 export const verifyToken = async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    
+
+    const JWT_SECRET = process.env.JWT_SECRET ||
+      process.env.ADMIN_JWT_SECRET ||
+      process.env.USER_JWT_SECRET ||
+      'dev_admin_secret_change_me';
+
     if (!token) {
       return res.status(401).json({
         success: false,
@@ -155,10 +157,10 @@ export const verifyToken = async (req, res) => {
 
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
-    
+
     // Get admin data
     const [admin] = await db.query('SELECT id, name, email, created_at FROM staff WHERE id = ?', [decoded.id]);
-    
+
     if (admin.length === 0) {
       return res.status(404).json({
         success: false,
@@ -172,14 +174,14 @@ export const verifyToken = async (req, res) => {
     });
   } catch (error) {
     console.error('Token verification error:', error);
-    
+
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
         message: 'Token expired',
       });
     }
-    
+
     res.status(401).json({
       success: false,
       message: 'Invalid token',
@@ -191,7 +193,12 @@ export const verifyToken = async (req, res) => {
 export const protect = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    
+
+    const JWT_SECRET = process.env.JWT_SECRET ||
+      process.env.ADMIN_JWT_SECRET ||
+      process.env.USER_JWT_SECRET ||
+      'dev_admin_secret_change_me';
+
     if (!token) {
       return res.status(401).json({
         success: false,
@@ -201,10 +208,10 @@ export const protect = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
-    
+
     // Check if admin exists
     const [admin] = await db.query('SELECT id FROM staff WHERE id = ?', [decoded.id]);
-    
+
     if (admin.length === 0) {
       return res.status(401).json({
         success: false,
@@ -217,14 +224,14 @@ export const protect = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    
+
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
         message: 'Token expired',
       });
     }
-    
+
     res.status(401).json({
       success: false,
       message: 'Not authorized, token failed',

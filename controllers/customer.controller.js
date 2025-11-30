@@ -323,12 +323,16 @@ export const updateCustomer = async (req, res) => {
     const fieldsToUpdate = [];
     const params = [];
 
-    // Handle avatar upload
+    // Handle avatar upload (either file or URL string)
     if (file) {
-      // Store relative path
+      // Store relative path from local upload
       const avatarPath = `/uploads/avatars/${file.filename}`;
       fieldsToUpdate.push('avatar = ?');
       params.push(avatarPath);
+    } else if (updateData.profile_image) {
+      // Handle direct URL update (e.g. from Telhost)
+      fieldsToUpdate.push('avatar = ?');
+      params.push(updateData.profile_image);
     }
 
     // Handle other fields
@@ -417,6 +421,8 @@ export const updateCustomer = async (req, res) => {
     const responseData = { id: customerId };
     if (file) {
       responseData.avatar = `/uploads/avatars/${file.filename}`;
+    } else if (updateData.profile_image) {
+      responseData.avatar = updateData.profile_image;
     }
 
     res.status(200).json({

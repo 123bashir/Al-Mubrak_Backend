@@ -1,21 +1,13 @@
 import jwt from 'jsonwebtoken';
 import { db } from '../db.js';
 
-const resolvedJwtSecret =
-  process.env.JWT_SECRET ||
-  process.env.ADMIN_JWT_SECRET ||
-  process.env.USER_JWT_SECRET;
-
-if (!resolvedJwtSecret && process.env.NODE_ENV !== 'production') {
-  console.warn(
-    '[verifyToken] Missing JWT secret. Falling back to a development-only secret. Set JWT_SECRET in your .env file for production.'
-  );
-}
-
-const JWT_SECRET = resolvedJwtSecret || 'dev_admin_secret_change_me';
-
 // Base token verification
 const verifyBaseToken = async (req, res, next, requiredRole = null) => {
+  const JWT_SECRET = process.env.JWT_SECRET ||
+    process.env.ADMIN_JWT_SECRET ||
+    process.env.USER_JWT_SECRET ||
+    'dev_admin_secret_change_me';
+
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;

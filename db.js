@@ -19,7 +19,7 @@ export const db = mysql.createPool({
   database: "almubara_almubarak_db",
   waitForConnections: true,
   connectionLimit: 10,
-  port:3306,
+  port: 3306,
   queueLimit: 0
 });
 console.log("Alhamdulillah MySQL connected successfully");
