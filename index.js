@@ -31,13 +31,8 @@ const __dirname = path.dirname(__filename);
 
 // Load env
 const localEnvPath = path.resolve(__dirname, ".env");
-const envResult = dotenv.config({ path: localEnvPath });
+dotenv.config({ path: localEnvPath });
 
-if (envResult.error) {
-  dotenv.config();
-}
-
-// Init express
 const app = express();
 
 // Sessions
@@ -85,11 +80,32 @@ const tempUpload = multer({ dest: "temp_uploads/" }); // temp folder for local u
 // ###############################################
 app.post("/api/upload", tempUpload.single("image"), async (req, res) => {
   try {
-    if (!req.file) {
+    let tempPath;
+    let originalName = "image.jpg";
+
+    if (req.file) {
+      // Handle Multer upload
+      tempPath = req.file.path;
+      originalName = req.file.originalname;
+    } else if (req.body.fileData) {
+      // Handle Base64 JSON upload
+      const base64Data = req.body.fileData;
+      originalName = req.body.fileName || "image.jpg";
+
+      // Create a unique temp file path
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      tempPath = path.join("temp_uploads", uniqueSuffix + '-' + originalName);
+
+      // Ensure temp_uploads directory exists
+      if (!fs.existsSync("temp_uploads")) {
+        fs.mkdirSync("temp_uploads");
+      }
+
+      // Write Base64 data to file
+      fs.writeFileSync(tempPath, Buffer.from(base64Data, 'base64'));
+    } else {
       return res.status(400).json({ message: "No file uploaded" });
     }
-
-    const tempPath = req.file.path;
 
     // Prepare FormData for Telhost
     const formData = new FormData();
@@ -103,14 +119,20 @@ app.post("/api/upload", tempUpload.single("image"), async (req, res) => {
     );
 
     // Delete local temp file
-    fs.unlinkSync(tempPath);
+    if (fs.existsSync(tempPath)) {
+      fs.unlinkSync(tempPath);
+    }
 
     return res.json({
       message: "Uploaded successfully",
       telhost: telhostResponse.data,
+      // Fallback for older frontend code expecting fileUrl
+      fileUrl: telhostResponse.data?.url
     });
   } catch (err) {
     console.error("Upload error:", err);
+    // Clean up temp file if it exists
+    // Note: tempPath might be undefined if error occurred before assignment
     return res.status(500).json({ message: "Upload failed", error: err.message });
   }
 });
