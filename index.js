@@ -71,68 +71,47 @@ if (!fs.existsSync(uploadsPath)) {
 }
 
 // ##############################
-// MULTER SETUP
+// CLOUDINARY SETUP
 // ##############################
-const tempUpload = multer({ dest: "temp_uploads/" }); // temp folder for local uploads
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "almubarak_uploads", // Folder name in Cloudinary
+    allowed_formats: ["jpg", "png", "jpeg", "webp"],
+  },
+});
+
+const upload = multer({ storage: storage });
 
 // ###############################################
-//  IMAGE UPLOAD ROUTE — RECEIVE FILE & SEND TO TELHOST
+//  IMAGE UPLOAD ROUTE — CLOUDINARY
 // ###############################################
-app.post("/api/upload", tempUpload.single("image"), async (req, res) => {
+app.post("/api/upload", upload.single("image"), async (req, res) => {
   try {
-    let tempPath;
-    let originalName = "image.jpg";
-
-    if (req.file) {
-      // Handle Multer upload
-      tempPath = req.file.path;
-      originalName = req.file.originalname;
-    } else if (req.body.fileData) {
-      // Handle Base64 JSON upload
-      const base64Data = req.body.fileData;
-      originalName = req.body.fileName || "image.jpg";
-
-      // Create a unique temp file path
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      tempPath = path.join("temp_uploads", uniqueSuffix + '-' + originalName);
-
-      // Ensure temp_uploads directory exists
-      if (!fs.existsSync("temp_uploads")) {
-        fs.mkdirSync("temp_uploads");
-      }
-
-      // Write Base64 data to file
-      fs.writeFileSync(tempPath, Buffer.from(base64Data, 'base64'));
-    } else {
+    if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // Prepare FormData for Telhost
-    const formData = new FormData();
-    formData.append("image", fs.createReadStream(tempPath));
-
-    // Send to Telhost
-    const telhostResponse = await axios.post(
-      "https://api.almubarakcosmetics.com.ng/uploads.php",
-      formData,
-      { headers: formData.getHeaders() }
-    );
-
-    // Delete local temp file
-    if (fs.existsSync(tempPath)) {
-      fs.unlinkSync(tempPath);
-    }
+    // Multer with Cloudinary storage automatically uploads the file
+    // and populates req.file with the Cloudinary response.
 
     return res.json({
       message: "Uploaded successfully",
-      telhost: telhostResponse.data,
-      // Fallback for older frontend code expecting fileUrl
-      fileUrl: telhostResponse.data?.url
+      fileUrl: req.file.path, // Cloudinary URL
+      // Keep telhost structure for compatibility if needed, though fileUrl is preferred
+      telhost: { url: req.file.path }
     });
   } catch (err) {
     console.error("Upload error:", err);
-    // Clean up temp file if it exists
-    // Note: tempPath might be undefined if error occurred before assignment
     return res.status(500).json({ message: "Upload failed", error: err.message });
   }
 });
