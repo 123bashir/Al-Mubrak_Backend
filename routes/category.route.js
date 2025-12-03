@@ -12,7 +12,7 @@ const router = express.Router();
 // All routes in this file are protected and require admin privileges
 
 // Get all categories (public)
-router.get('/categories', getCategories);
+router.get('/', getCategories);
 
 // Get sub-categories (admin only, optional category_id filter)
 
