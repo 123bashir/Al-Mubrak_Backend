@@ -1,26 +1,27 @@
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
-// Ensure uploads directory exists
-const uploadDir = 'uploads/avatars';
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Configure Cloudinary (it will automatically pull from your environment variables or fallback values)
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "du4laiwmj",
+    api_key: process.env.CLOUDINARY_API_KEY || "567859429173318",
+    api_secret: process.env.CLOUDINARY_API_SECRET || "csPinc3oHfZcXzyEU0rHNrQD9z4",
+});
 
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir);
+// Configure Cloudinary storage for avatars
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'almubarak_avatars',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+        public_id_prefix: 'avatar-',
     },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
-    }
 });
 
 const fileFilter = (req, file, cb) => {
     // Accept images only
-    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
         return cb(new Error('Only image files are allowed!'), false);
     }
     cb(null, true);
