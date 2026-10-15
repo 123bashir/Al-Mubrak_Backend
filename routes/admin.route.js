@@ -18,17 +18,23 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const avatarUploadsDir = path.join(__dirname, '..', 'uploads', 'admins');
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
-fs.mkdirSync(avatarUploadsDir, { recursive: true });
+// Configure Cloudinary (pulls from environment variables or defaults)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "du4laiwmj",
+  api_key: process.env.CLOUDINARY_API_KEY || "567859429173318",
+  api_secret: process.env.CLOUDINARY_API_SECRET || "csPinc3oHfZcXzyEU0rHNrQD9z4",
+});
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, avatarUploadsDir),
-  filename: (_req, file, cb) => {
-    const timestamp = Date.now();
-    const extension = path.extname(file.originalname);
-    const baseName = path.basename(file.originalname, extension).replace(/\s+/g, '_');
-    cb(null, `${timestamp}_${baseName}${extension}`);
-  }
+// Configure Cloudinary storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'almubarak_avatars',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+  },
 });
 
 const fileFilter = (_req, file, cb) => {

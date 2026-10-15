@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { v2 as cloudinary } from "cloudinary";
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import fs from 'fs';
@@ -11,8 +12,12 @@ const ADMIN_SELECT_FIELDS = 'id, name, email, phone, department, role, avatar, s
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ADMIN_UPLOADS_DIR = path.join(__dirname, '..', 'uploads', 'admins');
-fs.mkdirSync(ADMIN_UPLOADS_DIR, { recursive: true });
 
+try {
+  fs.mkdirSync(ADMIN_UPLOADS_DIR, { recursive: true });
+} catch (err) {
+  console.warn("Skipping local directory creation on Vercel serverless environment:", err.message);
+}
 const isFileAvatar = (value) => typeof value === 'string' && value.startsWith('/uploads/admins/');
 
 const buildAvatarUrl = (req, avatarValue) => {
