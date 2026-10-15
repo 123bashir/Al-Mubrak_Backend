@@ -1,31 +1,31 @@
 import express from 'express';
 import { body, param, validationResult } from 'express-validator';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import * as productController from '../controllers/product.controller.js';
 
 const router = express.Router();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, '..', 'uploads', 'products');
+// Configure Cloudinary (pulls from environment variables or defaults)
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "du4laiwmj",
+    api_key: process.env.CLOUDINARY_API_KEY || "567859429173318",
+    api_secret: process.env.CLOUDINARY_API_SECRET || "csPinc3oHfZcXzyEU0rHNrQD9z4",
+});
 
-fs.mkdirSync(uploadsDir, { recursive: true });
-
-const storage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadsDir),
-    filename: (_req, file, cb) => {
-        const timestamp = Date.now();
-        const sanitizedOriginal = file.originalname.replace(/\s+/g, '_');
-        cb(null, `${timestamp}_${sanitizedOriginal}`);
-    }
+// Configure Cloudinary storage for product images
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'almubarak_products',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    },
 });
 
 const fileFilter = (_req, file, cb) => {
     if (!file.mimetype.startsWith('image/')) {
-        return cb(new Error('Only image uploads are allowed'));
+        return cb(new Error('Only image uploads are allowed'), false);
     }
     cb(null, true);
 };
@@ -101,27 +101,36 @@ router.post('/addNewProduct',
     productController.createProduct
 );
 
-// Upload product image
+// Upload product image to Cloudinary
 router.post(
     '/upload-image',
     upload.single('image'),
     (req, res) => {
-        if (!req.file) {
-            return res.status(400).json({
+        try {
+            if (!req.file) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No image provided'
+                });
+            }
+
+            // req.file.path contains the secure Cloudinary URL
+            const fileUrl = req.file.path;
+
+            return res.status(201).json({
+                success: true,
+                message: 'Image uploaded successfully to Cloudinary',
+                url: fileUrl,
+                path: fileUrl
+            });
+        } catch (err) {
+            console.error("Cloudinary upload error:", err);
+            return res.status(500).json({
                 success: false,
-                message: 'No image provided'
+                message: 'Image upload failed',
+                error: err.message
             });
         }
-
-        const relativePath = path.join('uploads', 'products', req.file.filename).replace(/\\/g, '/');
-        const fileUrl = `${req.protocol}://${req.get('host')}/${relativePath}`;
-
-        return res.status(201).json({
-            success: true,
-            message: 'Image uploaded successfully',
-            url: fileUrl,
-            path: `/${relativePath}`
-        });
     }
 );
 
