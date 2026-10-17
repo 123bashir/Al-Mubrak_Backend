@@ -5,7 +5,7 @@ dotenv.config();
 
 export const db = mysql.createPool({
   host: "localhost",
-  user:  "app_user",
+  user:  "almubarak_app",
   password:  "Candd4611@", // Replace with your actual MySQL password
   database: "almubarak_db",
   port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
