@@ -4,15 +4,15 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const db = mysql.createPool({
-  host: "86.107.77.205",
-  user: "almubara_almubarak_db",
-  password: "Candd4611@",
-  database: "almubara_almubarak_db",
+  host: "localhost",
+  user:  "app_user",
+  password:  "Candd4611@", // Replace with your actual MySQL password
+  database: "almubarak_db",
   port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
   waitForConnections: true,
-  connectionLimit: 2,          // Keep low for serverless to protect TelaHosting limits
+  connectionLimit: 10,
   queueLimit: 0,
-  connectTimeout: 30000        // 30 seconds timeout for remote cPanel connection
-}).promise();                    // Enables async/await query execution
+  connectTimeout: 30000
+}).promise();
 
-console.log("Alhamdulillah MySQL pool configured successfully");
+console.log("Alhamdulillah MySQL pool configured successfully for AWS EC2");
